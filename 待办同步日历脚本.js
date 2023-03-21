@@ -21,12 +21,18 @@ for (cal of calendar) {
 }
 
 const events = await CalendarEvent.between(startDate, endDate, calendar);
-console.log(`获取 ${events.length} 条日历`);
+console.log(`获取 ${events.length} 条日历事件`);
+
+// 非提醒的日历事件
+const no_reminder_events = events.filter(e => !reminders.find(r => e.notes?.includes(r.identifier)))
+console.log(`非提醒事项的其他日历事件: ${no_reminder_events.length} 条`)
+// console.log(no_reminder_events)
 
 // 当手机端和iPad同时都添加了自动化，并且Reminder和Calendar设置了iCloud同步
 // 容易生成重复的Reminder日历事件，其实日历事件并不是同一个，需删除一条
+// 或者只在某一个终端上进行自动化，其他终端通过iCloud同步数据即可
 const repeated_reminders = reminders.filter(r => events.filter(e => e.notes?.includes(r.identifier)).length > 1)
-console.log(`重复添加的Reminder: ${repeated_reminders.length} 条`)
+console.log(`重复的提醒事项: ${repeated_reminders.length} 条`)
 // console.log(repeated_reminders)
 const repeated_events = repeated_reminders.map(reminder => events.filter(e => e.notes?.includes(reminder?.identifier))).flat()
 // console.log(repeated_events)
@@ -37,12 +43,8 @@ for (let i in repeated_events) {
   events.splice(index, 1);
   event.remove()
 }
-console.log(`删除重复添加的Reminder事件后 ${events.length} 条日历`);
-
-// 非提醒的事件事件
-const no_reminder_events = events.filter(e => !reminders.find(r => e.notes?.includes(r.identifier)))
-console.log(`非Reminder的其他日历事件: ${no_reminder_events.length} 条`)
-// console.log(no_reminder_events)
+console.log(`删除重复数据后的日历事件: ${events.length} 条`);
+// console.log(events);
 
 var reminders_id_set = new Set(reminders.map((e) => e.identifier));
 
@@ -145,11 +147,14 @@ function updateEvent(event, reminder) {
     var ending = new Date(reminder.completionDate)
     // ending.setHours(ending.getHours()+1)
     event.endDate = ending
+    
+    // 提前完成的事项
     if (Date.parse(reminder.dueDate) > Date.parse(reminder.completionDate)) {
       let starting = ending
       starting.setHours(starting.getHours() - 1)
       event.startDate = starting
     }
+
 
     // var period = (reminder.dueDate - reminder.completionDate) / 1000 / 3600 / 24;
     // period = period.toFixed(1);
@@ -172,16 +177,16 @@ function updateEvent(event, reminder) {
     const formattedPeriod = getFormattedPeriod(period)
 
     if (period < 0) {
-      //待办顺延
+      // 待办顺延
       event.location = " 延期 " + formattedPeriod;
-      //如果不是在同一天,设置为全天事项
+      // 如果不是在同一天,设置为全天事项
       if (reminder.dueDate.getDate() != nowtime.getDate()) {
         event.title = `${getIcons('undued', 0)}  ${getIcons('category', cal_name)}${reminder.title} ${getIcons('undued', randomNum(1, 5))}${getIcons('undued', randomNum(1, 5))}`;
         event.startDate = nowtime;
         event.endDate = nowtime;
         event.isAllDay = true;
       } else { // 在同一天的保持原来的时间
-        event.title = `${getIcons('ongoing', 0)}  ${getIcons('category', cal_name)}${reminder.title} ${getIcons('ongoing', randomNum(1, 5))}${getIcons('ongoing', randomNum(1, 5))}`;
+        event.title = `${getIcons('undued', 0)}  ${getIcons('category', cal_name)}${reminder.title} ${getIcons('ongoing', randomNum(1, 5))}${getIcons('undued', randomNum(1, 5))}`;
         event.isAllDay = false;
         event.startDate = reminder.dueDate;
         var ending = new Date(reminder.dueDate);
