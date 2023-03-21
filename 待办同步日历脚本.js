@@ -23,11 +23,34 @@ for (cal of calendar) {
 const events = await CalendarEvent.between(startDate, endDate, calendar);
 console.log(`获取 ${events.length} 条日历`);
 
+// 当手机端和iPad同时都添加了自动化，并且Reminder和Calendar设置了iCloud同步
+// 容易生成重复的Reminder日历事件，其实日历事件并不是同一个，需删除一条
+const repeated_reminders = reminders.filter(r => events.filter(e => e.notes?.includes(r.identifier)).length > 1)
+console.log(`重复添加的Reminder: ${repeated_reminders.length} 条`)
+// console.log(repeated_reminders)
+const repeated_events = repeated_reminders.map(reminder => events.filter(e => e.notes?.includes(reminder?.identifier))).flat()
+// console.log(repeated_events)
+for (let i in repeated_events) {
+  // 删除重复添加的Reminder日历事件
+  const event = repeated_events[i]
+  const index = events.findIndex(e => e.identifier === event.identifier)
+  events.splice(index, 1);
+  event.remove()
+}
+console.log(`删除重复添加的Reminder事件后 ${events.length} 条日历`);
+
+// 非提醒的事件事件
+const no_reminder_events = events.filter(e => !reminders.find(r => e.notes?.includes(r.identifier)))
+console.log(`非Reminder的其他日历事件: ${no_reminder_events.length} 条`)
+// console.log(no_reminder_events)
+
 var reminders_id_set = new Set(reminders.map((e) => e.identifier));
+
 //删除日历里提醒事项删除的事项
 events_created = events.filter(
-  (e) => e.notes != null && e.notes.includes("[Reminder]")
+  (e) => e.notes?.includes("[Reminder]")
 );
+
 for (let event of events_created) {
   //console.warn(event.notes)
   let reg = /(\[Reminder\])\s([A-Z0-9\-]*)/;
@@ -41,10 +64,10 @@ for (let event of events_created) {
 for (const reminder of reminders) {
   //reminder的标识符
   const targetNote = `[Reminder] ${reminder.identifier}`;
-  // const targetNote = `[Reminder]`;
   const [targetEvent] = events.filter(
-    (e) => e.notes != null && e.notes.includes(targetNote)
+    (e) => e.notes?.includes(reminder.identifier)
   ); //过滤重复的reminder
+  
   if (!m_dict[reminder.calendar.title]) {
     console.warn("找不到日历" + reminder.calendar.title);
     continue;
@@ -67,23 +90,23 @@ function getFormattedPeriod(period) {
   const days = Math.floor(period / 1000 / 3600 / 24)
   const hours = Math.floor((period / 1000 / 3600 / 24 - days) * 24)
   const minutes = Math.floor(((period / 1000 / 3600 / 24 - days) * 24 - hours) * 60)
-  const seconds = (((period / 1000 / 3600 / 24 - days) * 24 - hours) * 60 - minutes) * 60
-  const formattedPeriod = `${days || '0'}天${hours || '0'}小时${minutes || '0'}分钟${seconds.toFixed(0) || '0'}秒钟`
+  // const seconds = (((period / 1000 / 3600 / 24 - days) * 24 - hours) * 60 - minutes) * 60
+  const formattedPeriod = `${days || '0'}天${hours || '0'}小时${minutes || '0'}分钟` // ${seconds.toFixed(0) || '0'}秒钟
   return formattedPeriod
 }
 
-function randomNum(minNum,maxNum){
-  switch(arguments.length){
-    case 1:
-      return parseInt(Math.random()*minNum+1,10);
-      break;
-    case 2:
+function randomNum(minNum,maxNum){ 
+  switch(arguments.length){ 
+    case 1: 
+      return parseInt(Math.random()*minNum+1,10); 
+      break; 
+    case 2: 
       return parseInt(Math.random()*(maxNum-minNum+1)+minNum,10); 
-      break;
+      break; 
     default:
       return 0;
-      break;
-  }
+      break; 
+  } 
 }
 
 function getIcons(status, key) {
@@ -116,7 +139,7 @@ function updateEvent(event, reminder) {
   //已完成事项
   if (reminder.isCompleted) {
     event.title = `${getIcons('completed', 0)}  ${getIcons('category', cal_name)}${reminder.title} ${getIcons('completed', randomNum(1, 5))}${getIcons('completed', randomNum(1, 5))}`;
-    event.isAllDay = true;
+    event.isAllDay = false;
     event.startDate = reminder.dueDate;
     // event.endDate=reminder.dueDate
     var ending = new Date(reminder.completionDate)
@@ -133,12 +156,12 @@ function updateEvent(event, reminder) {
     const period = reminder.dueDate - reminder.completionDate
     const formattedPeriod = getFormattedPeriod(period)
 
-    if (period < 0) {
-      event.location = " 延期" + formattedPeriod + "完成";
-    } else if (period == 0) {
+    if (period < -60000) {
+      event.location = " 用时 " + formattedPeriod + " 完成";
+    } else if (period / 1000 / 60 < 1) {
       event.location = " 准时完成";
     } else {
-      event.location = " 提前" + formattedPeriod + "完成";
+      event.location = " 提前 " + formattedPeriod + " 完成";
     }
   } else { // 未完成事项
     const nowtime = new Date();
@@ -150,7 +173,7 @@ function updateEvent(event, reminder) {
 
     if (period < 0) {
       //待办顺延
-      event.location = " 延期" + formattedPeriod;
+      event.location = " 延期 " + formattedPeriod;
       //如果不是在同一天,设置为全天事项
       if (reminder.dueDate.getDate() != nowtime.getDate()) {
         event.title = `${getIcons('undued', 0)}  ${getIcons('category', cal_name)}${reminder.title} ${getIcons('undued', randomNum(1, 5))}${getIcons('undued', randomNum(1, 5))}`;
@@ -169,7 +192,7 @@ function updateEvent(event, reminder) {
     } else {
       event.title = `${getIcons('ongoing', 0)}  ${getIcons('category', cal_name)}${reminder.title} ${getIcons('ongoing', randomNum(1, 5))}${getIcons('ongoing', randomNum(1, 5))}`;
       event.isAllDay = false;
-      event.location = " 还剩" + formattedPeriod
+      event.location = " 距离开始还剩 " + formattedPeriod
       event.startDate = reminder.dueDate;
       var ending = new Date(reminder.dueDate);
       ending.setHours(ending.getHours() + 1);
@@ -177,6 +200,5 @@ function updateEvent(event, reminder) {
     }
   }
   if (!reminder.dueDateIncludesTime) event.isAllDay = true;
-  console.log(event)
-  event && event.save();
+  event.save && event.save();
 }
