@@ -59,6 +59,8 @@ for (let event of events_created) {
   let r = event.notes.match(reg);
   //if(r) console.log(r[2])
   if (!reminders_id_set.has(r[2])) {
+    const index = events.findIndex(e => e.identifier === event.identifier)
+    events.splice(index, 1);
     event.remove();
   }
 }
@@ -133,6 +135,7 @@ function getIcons(status, key) {
 
 function updateEvent(event, reminder) {
   event.title = event.title || `${reminder.title}`
+  // console.log(event.title);
   cal_name = reminder.calendar.title;
   cal = m_dict[cal_name];
   event.calendar = cal;
@@ -141,14 +144,15 @@ function updateEvent(event, reminder) {
 
 	const categoryIcon = getIcons('category', cal_name)
 	let [statusIcon, ...rest] = event.title.split(' ')
-  let commonIcons = rest.slice(-1)
-  // console.log(`init: ${statusIcon}; ${categoryIcon}; ${commonIcons}`);
+  let [commonIcons] = rest.slice(-1)
+  //console.log(`init: ${statusIcon}; ${categoryIcon}; ${commonIcons}`);
   
   //已完成事项
   if (reminder.isCompleted) {
     statusIcon = getIcons('completed', 0).includes(statusIcon) ? statusIcon : getIcons('completed', 0)
-    commonIcons = getIcons('completed', 0).includes(statusIcon) ? commonIcons : `${getIcons('completed', randomNum(1, 5))}${getIcons('completed', randomNum(1, 5))}` // && commonIcons.filter(c => getIcons('completed').includes(c))?.length === commonIcons.length
-    // console.log(`updated: ${statusIcon}; ${categoryIcon}; ${commonIcons}`);
+    commonIcons = getIcons('completed', 0).includes(statusIcon) && commonIcons.split('').filter(c => getIcons('completed').join('').split('').includes(c)).length === commonIcons.split('').length ? commonIcons : `${getIcons('completed', randomNum(1, 5))}${getIcons('completed', randomNum(1, 5))}`
+		//console.log(`updated: ${statusIcon}; ${categoryIcon}; ${commonIcons}`)
+    //console.log('')
     
     event.title = `${statusIcon}  ${categoryIcon}${reminder.title} ${commonIcons}`;
     event.isAllDay = false;
@@ -194,16 +198,20 @@ function updateEvent(event, reminder) {
 
     if (period < 0) {
       //待办顺延
-      event.location = " 延期 " + formattedPeriod;
+      statusIcon = getIcons('undued', 0).includes(statusIcon) ? statusIcon : getIcons('undued', 0)
+      commonIcons = getIcons('undued', 0).includes(statusIcon) && commonIcons.split('').filter(c => getIcons('undued').join('').split('').includes(c)).length === commonIcons.split('').length ? commonIcons : `${getIcons('undued', randomNum(1, 5))}${getIcons('undued', randomNum(1, 5))}` //  && commonIcons.filter(c => getIcons('undued').includes(c))?.length === commonIcons.length
+      // console.log(`updated: ${statusIcon}; ${categoryIcon}; ${commonIcons}`)
+      // console.log('')
+      
       //如果不是在同一天,设置为全天事项
       if (reminder.dueDate.getDate() != nowtime.getDate()) {
-        statusIcon = getIcons('undued', 0).includes(statusIcon) ? statusIcon : getIcons('undued', 0)
-        commonIcons = getIcons('undued', 0).includes(statusIcon) ? commonIcons : `${getIcons('undued', randomNum(1, 5))}${getIcons('undued', randomNum(1, 5))}` // && commonIcons.filter(c => getIcons('undued').includes(c))?.length === commonIcons.length
+        event.location = " 延期 " + formattedPeriod;
         event.title = `${statusIcon}  ${categoryIcon}${reminder.title} ${commonIcons}`;
         event.startDate = nowtime;
         event.endDate = nowtime;
         event.isAllDay = true;
       } else { // 在同一天的保持原来的时间
+				event.location = " 已开始 " + formattedPeriod;
         event.title = `${statusIcon}  ${categoryIcon}${reminder.title} ${commonIcons}`;
         event.isAllDay = false;
         event.startDate = reminder.dueDate;
@@ -214,7 +222,10 @@ function updateEvent(event, reminder) {
       console.log(`【${reminder.title}】待办顺延${formattedPeriod}`);
     } else {
       statusIcon = getIcons('ongoing', 0).includes(statusIcon) ? statusIcon : getIcons('ongoing', 0)
-      commonIcons = getIcons('ongoing', 0).includes(statusIcon) ? commonIcons : `${getIcons('ongoing', randomNum(1, 5))}${getIcons('ongoing', randomNum(1, 5))}` // && commonIcons.filter(c => getIcons('ongoing').includes(c))?.length === commonIcons.length
+      commonIcons = getIcons('ongoing', 0).includes(statusIcon) && commonIcons.split('').filter(c => getIcons('ongoing').join('').split('').includes(c)).length === commonIcons.split('').length ? commonIcons : `${getIcons('ongoing', randomNum(1, 5))}${getIcons('ongoing', randomNum(1, 5))}` // && commonIcons.filter(c => getIcons('ongoing').includes(c))?.length === commonIcons.length
+      // console.log(`updated: ${statusIcon}; ${categoryIcon}; ${commonIcons}`)
+      // console.log('')
+      
       event.title = `${statusIcon}  ${categoryIcon}${reminder.title} ${commonIcons}`;
       event.isAllDay = false;
       event.location = " 距离开始还剩 " + formattedPeriod
